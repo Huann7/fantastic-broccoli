@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt  # 新增：用于绘图
+
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-
 # ---------------------- 全局配置与页面设置 ----------------------
 st.set_page_config(
     page_title="学生成绩分析与预测系统",
@@ -99,34 +98,26 @@ elif page == "专业数据分析":
     st.title("📊 专业数据分析")
     st.markdown("---")
     
+
     # 1. 各专业男女性别比例
     st.header("1. 各专业男女性别比例")
-    fig_gender = px.bar(
-        df, 
-        x='专业', 
-        color='性别', 
-        barmode='group', 
-        title='各专业男女性别比例',
-        color_discrete_sequence=['#3b82f6', '#60a5fa'],
-        category_orders={"专业": df['专业'].unique()}
-    )
-    fig_gender.update_layout(plot_bgcolor='#121212', paper_bgcolor='#121212')
-    st.plotly_chart(fig_gender, use_container_width=True)
-    
+    # 统计每个专业的男女人数
+    gender_major = pd.crosstab(df['专业'], df['性别'])
+    # 保持原始专业顺序
+    gender_major = gender_major.reindex(df['专业'].unique())
+    # 用Streamlit内置柱状图展示
+    st.bar_chart(gender_major, use_container_width=True)
+
     # 2. 各专业学习指标对比
     st.header("2. 各专业学习指标对比")
     col6, col7 = st.columns([2, 1])
     with col6:
-        fig_metrics = px.line(
-            df, 
-            x='专业', 
-            y=['每周学习时长（小时）', '期中考试分数'], 
-            title='各专业学习指标对比',
-            color_discrete_sequence=['#10b981', '#f59e0b'],
-            category_orders={"专业": df['专业'].unique()}
-        )
-        fig_metrics.update_layout(plot_bgcolor='#121212', paper_bgcolor='#121212')
-        st.plotly_chart(fig_metrics, use_container_width=True)
+    # 按专业分组计算平均值
+        metrics_data = df.groupby('专业')[['每周学习时长（小时）', '期中考试分数']].mean()
+    # 保持原始专业顺序
+        metrics_data = metrics_data.reindex(df['专业'].unique())
+    # 用Streamlit内置折线图展示
+        st.line_chart(metrics_data, use_container_width=True)
     with col7:
         st.subheader("详细数据")
         metrics_table = df.groupby('专业')[['每周学习时长（小时）', '期中考试分数']].mean().reset_index()
@@ -136,14 +127,18 @@ elif page == "专业数据分析":
     st.header("3. 各专业出勤率分析")
     col8, col9 = st.columns([2, 1])
     with col8:
-        fig_attendance = px.imshow(
-            df.pivot_table(index='专业', values='上课出勤率', aggfunc='mean'),
-            title='各专业平均出勤率',
-            color_continuous_scale='viridis',
-            aspect='auto'
-        )
-        fig_attendance.update_layout(plot_bgcolor='#121212', paper_bgcolor='#121212')
-        st.plotly_chart(fig_attendance, use_container_width=True)
+    # 计算各专业平均出勤率
+        attendance_data = df.groupby('专业')['上课出勤率'].mean().reset_index()
+        attendance_data = attendance_data.set_index('专业')  # 专业作为索引
+    # 用Matplotlib绘制热图
+        plt.figure(figsize=(10, 6))
+        plt.imshow(attendance_data, cmap='viridis', aspect='auto')  # 热图
+        plt.colorbar(label='平均出勤率')  # 颜色条
+        plt.xticks(ticks=range(len(attendance_data.index)), 
+               labels=attendance_data.index, rotation=45)  # 专业名称
+        plt.title('各专业平均出勤率')
+        st.pyplot(plt.gcf(), use_container_width=True)  # 显示图表
+        plt.close()  # 关闭图表避免重叠
     with col9:
         st.subheader("出勤率排名")
         attendance_rank = df.groupby('专业')['上课出勤率'].mean().sort_values(ascending=False).reset_index()
@@ -165,24 +160,24 @@ elif page == "专业数据分析":
     
     col14, col15 = st.columns(2)
     with col14:
-        fig_bigdata_score = px.histogram(
-            df_bigdata, 
-            x='期末考试分数', 
-            title='大数据管理专业期末成绩分布',
-            color_discrete_sequence=['#22c55e']
-        )
-        fig_bigdata_score.update_layout(plot_bgcolor='#121212', paper_bgcolor='#121212')
-        st.plotly_chart(fig_bigdata_score, use_container_width=True)
+    # 用Matplotlib绘制直方图
+        plt.figure(figsize=(10, 6))
+        plt.hist(df_bigdata['期末考试分数'], bins=10, color='#22c55e')  # 直方图
+        plt.title('大数据管理专业期末成绩分布')
+        plt.xlabel('期末考试分数')
+        plt.ylabel('学生数量')
+        st.pyplot(plt.gcf(), use_container_width=True)
+        plt.close()
     with col15:
-        fig_bigdata_study = px.box(
-            df_bigdata, 
-            x='专业', 
-            y='每周学习时长（小时）', 
-            title='大数据管理专业学习时长分布',
-            color_discrete_sequence=['#14b8a6']
-        )
-        fig_bigdata_study.update_layout(plot_bgcolor='#121212', paper_bgcolor='#121212')
-        st.plotly_chart(fig_bigdata_study, use_container_width=True)
+    # 用Matplotlib绘制箱线图
+        plt.figure(figsize=(10, 6))
+        plt.boxplot(df_bigdata['每周学习时长（小时）'], 
+                    patch_artist=True, 
+                    boxprops=dict(facecolor='#14b8a6'))  # 箱线图
+        plt.title('大数据管理专业学习时长分布')
+        plt.ylabel('每周学习时长（小时）')
+        st.pyplot(plt.gcf(), use_container_width=True)
+        plt.close()
 
 # ---------- 3. 成绩预测页面 ----------
 else:
